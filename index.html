@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>INDIA</title>
+  <title>I N D I A</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
@@ -50,22 +50,27 @@
   <!-- Password Only Screen -->
   <div id="login-screen" class="card">
     <h2 style="margin-bottom: 5px; color: #38bdf8;">THE CYBER ACADEMY</h2>
-    <p style="color: #94a3b8; font-size: 13px;">WHAT IS YOUR NAME ?</p>
+    <p style="color: #94a3b8; font-size: 13px;">What is your name ?</p>
     
     <form onsubmit="event.preventDefault(); checkPassword();" autocomplete="off">
-      <!-- Direct Password Input Only -->
-      <input type="text" id="pass-input" placeholder="Enter your name ..." autocomplete="chrome-off" autocorrect="off" autocapitalize="off" spellcheck="false" onfocus="this.type='password'">
-     
+      <input 
+        type="text" 
+        id="pass-input" 
+        placeholder="Enter your name ....." 
+        autocomplete="chrome-off" 
+        autocorrect="off" 
+        autocapitalize="off" 
+        spellcheck="false"
+        onfocus="this.type='password'"
+      >
       <button type="submit">Enter</button>
     </form>
-
-    <p id="error-msg" style="color:#ef4444; display:none; font-size:13px; margin-top:10px; text-align:center;"> O </p>
   </div>
 
   <!-- Chat Screen -->
   <div id="chat-screen" class="card">
     <div class="chat-header">
-      <h3>THIS IS A ROOM</h3>
+      <h3>W E L C O M E !</h3>
       <span id="user-display" style="font-size: 12px; color: #94a3b8;"></span>
     </div>
     
@@ -81,7 +86,26 @@
     // 1. AAPKA FIX PASSWORD
     const FIX_PASSWORD = "K3";
 
-    // 2. FIREBASE CONFIG
+    // 2. MOTIVATIONAL QUOTES LIST
+    const quotes = [
+      "“Mehnat itni khamoshi se karo ki kamyabi shor macha de!”",
+      "“Koshish aisi karo ki haarte haarte kab jeet jao, pata hi na chale!”",
+      "“Mahaanta kabhi na girne me nahi, balki har baar girkar uthne me hai!”",
+      "“Padhai aaj dard lag sakti hai, lekin kal yehi aapki sabse badi taqat banegi!”",
+      "“Sapne wo nahi jo hum sochte waqt dekhte hain, sapne wo hain jo humein sone nahi dete!”",
+      "“Jeet aur haar aapki soch par nirbhar karti hai, maano toh haar hai, thaan lo toh jeet!”",
+      "“Lakh kathinaiyan aayein zindagi me, kabhi haar mat maano, mehnat ka fal zaroor milega!”",
+      "“Waqt badalta hai, phir badlega... mehnat karte raho, poora jahan aapka hoga!”",
+      "“Jo ho gaya use socha nahi karte, jab jaage tabhi savera... padhai par dhyan do!”",
+      "“Manzil unhi ko milti hai jinne hauslon me jaan hoti hai, pankhon se kuch nahi hota, hauslon se udaan hoti hai!”",
+      "“Koshish karne walon ki kabhi haar nahi hoti!”",
+      "“Chhote chhote badlaav hi badi kamyabi ka hissa hote hain!”",
+      "“Padhai me man nahi lage toh apne sapno ko yaad kar lena, rasta khud-ba-khud mil jayega!”",
+      "“Zindagi ek baar milti hai, ise behtar banane me apni poori jaan laga do!”",
+      "“Safalta ek din me nahi milti, lekin agar roz mehnat karo toh ek din zaroor milti hai!”"
+    ];
+
+    // 3. FIREBASE CONFIG
     const firebaseConfig = {
       apiKey: "AIzaSyBJUJ_y_TucKJynY76FzBp7RAD0KkEV7zY",
       authDomain: "live-chat-8921e.firebaseapp.com",
@@ -101,7 +125,6 @@
       const enteredPass = document.getElementById("pass-input").value;
 
       if (enteredPass === FIX_PASSWORD) {
-        // AUTOMATIC RANDOM NAME GENERATOR (e.g. User-4921)
         const randomNum = Math.floor(1000 + Math.random() * 9000);
         myName = "User-" + randomNum;
 
@@ -110,7 +133,11 @@
         document.getElementById("chat-screen").style.display = "flex";
         loadMessages();
       } else {
-        document.getElementById("error-msg").style.display = "block";
+        // Random Quote Pop-up
+        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        alert("❌ Galat Password!\n\n💡 Aaj Ka Vichar:\n" + randomQuote);
+        
+        document.getElementById("pass-input").value = "";
       }
     }
 
