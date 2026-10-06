@@ -54,7 +54,8 @@
     
     <form onsubmit="event.preventDefault(); checkPassword();" autocomplete="off">
       <!-- Direct Password Input Only -->
-      <input type="password" id="pass-input" placeholder="Enter your name ..." autocomplete="new-password" name="pass_no_fill" autocorrect="off">
+      <input type="text" id="pass-input" placeholder="Enter your name ..." autocomplete="chrome-off" autocorrect="off" autocapitalize="off" spellcheck="false" onfocus="this.type='password'">
+     
       <button type="submit">Enter</button>
     </form>
 
