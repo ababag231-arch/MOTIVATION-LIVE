@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Private Chat Room</title>
+  <title>INPUT</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
@@ -47,35 +47,38 @@
 </head>
 <body>
 
-  <!-- Password Access Screen -->
+  <!-- Password Only Screen -->
   <div id="login-screen" class="card">
-    <h2 style="margin-bottom: 5px; color: #38bdf8;">Private Access</h2>
-    <p style="color: #94a3b8; font-size: 13px;">Secret room me enter hone ke liye details bharein</p>
+    <h2 style="margin-bottom: 5px; color: #38bdf8;">Access</h2>
+    <p style="color: #94a3b8; font-size: 13px;">WHAT IS YOUR NAME ?</p>
     
-    <input type="text" id="username" placeholder="Apna Naam (e.g. Rahul)">
-    <input type="password" id="pass-input" placeholder="Fix Password Access">
-    <button onclick="checkPassword()">Enter Chat Room</button>
-    <p id="error-msg" style="color:#ef4444; display:none; font-size:13px; margin-top:10px; text-align:center;">Galat Password!</p>
+    <form onsubmit="event.preventDefault(); checkPassword();" autocomplete="off">
+      <!-- Direct Password Input Only -->
+      <input type="password" id="pass-input" placeholder="Enter Room Password" autocomplete="new-password" name="pass_no_fill" autocorrect="off">
+      <button type="submit">Enter</button>
+    </form>
+
+    <p id="error-msg" style="color:#ef4444; display:none; font-size:13px; margin-top:10px; text-align:center;"> O </p>
   </div>
 
   <!-- Chat Screen -->
   <div id="chat-screen" class="card">
     <div class="chat-header">
-      <h3>🔒 Private Chat</h3>
+      <h3>THIS IS A ROOM</h3>
       <span id="user-display" style="font-size: 12px; color: #94a3b8;"></span>
     </div>
     
     <div id="messages"></div>
 
-    <form class="input-box" onsubmit="event.preventDefault(); sendMessage();">
-      <input type="text" id="msg-input" placeholder="Message write karein..." autocomplete="off">
+    <form class="input-box" onsubmit="event.preventDefault(); sendMessage();" autocomplete="off">
+      <input type="text" id="msg-input" placeholder="Message write karein..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       <button type="submit">Send</button>
     </form>
   </div>
 
   <script>
     // 1. AAPKA FIX PASSWORD
-    const FIX_PASSWORD = "KUMAR0";
+    const FIX_PASSWORD = "K3";
 
     // 2. FIREBASE CONFIG
     const firebaseConfig = {
@@ -95,16 +98,13 @@
 
     function checkPassword() {
       const enteredPass = document.getElementById("pass-input").value;
-      const enteredName = document.getElementById("username").value.trim();
-
-      if (enteredName === "") {
-        alert("Kripya apna naam bharein!");
-        return;
-      }
 
       if (enteredPass === FIX_PASSWORD) {
-        myName = enteredName;
-        document.getElementById("user-display").textContent = "User: " + myName;
+        // AUTOMATIC RANDOM NAME GENERATOR (e.g. User-4921)
+        const randomNum = Math.floor(1000 + Math.random() * 9000);
+        myName = "User-" + randomNum;
+
+        document.getElementById("user-display").textContent = "You: " + myName;
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("chat-screen").style.display = "flex";
         loadMessages();
@@ -123,8 +123,6 @@
           timestamp: Date.now()
         });
         msgInput.value = "";
-        
-        // KEYBOARD KO OPEN RAKHNE KE LIYE FOCUS
         msgInput.focus();
       }
     }
@@ -157,7 +155,6 @@
       });
     }
 
-    // MESSAGE DELETE KARNE KA FUNCTION
     function deleteMessage(key) {
       if (confirm("Kya aap is message ko delete karna chahte hain?")) {
         database.ref("private_chat").child(key).remove();
