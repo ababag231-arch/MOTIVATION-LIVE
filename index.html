@@ -2,20 +2,45 @@
 <html lang="hi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Our Private Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Private Chat Room</title>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-    .card { background: #1e293b; padding: 25px; border-radius: 12px; width: 340px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-    input, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: none; box-sizing: border-box; font-size: 14px; }
-    input { background: #334155; color: white; outline: none; }
-    button { background: #3b82f6; color: white; cursor: pointer; font-weight: bold; }
-    button:hover { background: #2563eb; }
-    #chat-screen { display: none; }
-    #messages { height: 260px; overflow-y: auto; background: #0f172a; padding: 12px; margin-bottom: 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
-    .msg { background: #334155; padding: 8px 12px; border-radius: 6px; max-width: 80%; word-break: break-word; }
-    .my-msg { background: #2563eb; align-self: flex-end; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    
+    .card { background: #1e293b; padding: 20px; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin: 10px; }
+    
+    input, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 10px; border: none; font-size: 15px; outline: none; }
+    input { background: #334155; color: white; border: 1px solid #475569; }
+    input:focus { border-color: #3b82f6; }
+    
+    button { background: #2563eb; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button:active { transform: scale(0.98); }
+
+    /* Chat UI */
+    #chat-screen { display: none; height: 85vh; flex-direction: column; max-width: 500px; width: 100%; padding: 15px; }
+    .chat-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #334155; }
+    .chat-header h3 { font-size: 18px; color: #38bdf8; }
+
+    #messages { flex: 1; overflow-y: auto; background: #0f172a; padding: 12px; margin: 12px 0; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #1e293b; }
+    
+    .msg { display: flex; flex-direction: column; position: relative; padding: 8px 12px; border-radius: 12px; max-width: 80%; word-wrap: break-word; font-size: 14px; line-height: 1.4; }
+    .msg-content { margin-right: 20px; }
+    
+    .my-msg { background: #1d4ed8; align-self: flex-end; border-bottom-right-radius: 2px; }
+    .other-msg { background: #334155; align-self: flex-start; border-bottom-left-radius: 2px; }
+    
+    .sender-name { font-size: 11px; color: #94a3b8; margin-bottom: 3px; font-weight: 600; }
+    
+    /* Delete Button */
+    .delete-btn { position: absolute; top: 6px; right: 6px; background: none; border: none; color: #f87171; cursor: pointer; padding: 0; margin: 0; width: auto; font-size: 12px; opacity: 0.7; }
+    .delete-btn:hover { opacity: 1; }
+
+    .input-box { display: flex; gap: 8px; }
+    .input-box input { margin: 0; flex: 1; }
+    .input-box button { width: auto; padding: 0 18px; margin: 0; }
   </style>
+
   <!-- Firebase Compat Libraries -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -24,30 +49,39 @@
 
   <!-- Password Access Screen -->
   <div id="login-screen" class="card">
-    <h2 style="margin-top:0;">Private Access</h2>
+    <h2 style="margin-bottom: 5px; color: #38bdf8;">Private Access</h2>
+    <p style="color: #94a3b8; font-size: 13px;">Secret room me enter hone ke liye details bharein</p>
+    
     <input type="text" id="username" placeholder="Apna Naam (e.g. Rahul)">
     <input type="password" id="pass-input" placeholder="Fix Password Access">
     <button onclick="checkPassword()">Enter Chat Room</button>
-    <p id="error-msg" style="color:#ef4444; display:none; font-size:13px; margin-top:8px;">Galat Password!</p>
+    <p id="error-msg" style="color:#ef4444; display:none; font-size:13px; margin-top:10px; text-align:center;">Galat Password!</p>
   </div>
 
   <!-- Chat Screen -->
   <div id="chat-screen" class="card">
-    <h3 style="margin-top:0;">1-on-1 Private Chat</h3>
+    <div class="chat-header">
+      <h3>🔒 Private Chat</h3>
+      <span id="user-display" style="font-size: 12px; color: #94a3b8;"></span>
+    </div>
+    
     <div id="messages"></div>
-    <input type="text" id="msg-input" placeholder="Message likho..." onkeypress="if(event.key==='Enter') sendMessage()">
-    <button onclick="sendMessage()">Send</button>
+
+    <form class="input-box" onsubmit="event.preventDefault(); sendMessage();">
+      <input type="text" id="msg-input" placeholder="Message write karein..." autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
   </div>
 
   <script>
-    // 1. AAPKA FIX PASSWORD (Aap ise badal sakte hain)
+    // 1. AAPKA FIX PASSWORD
     const FIX_PASSWORD = "KUMAR0";
 
-    // 2. AAPKA FIREBASE CONFIG
+    // 2. FIREBASE CONFIG
     const firebaseConfig = {
       apiKey: "AIzaSyBJUJ_y_TucKJynY76FzBp7RAD0KkEV7zY",
       authDomain: "live-chat-8921e.firebaseapp.com",
-      databaseURL: "https://live-chat-8921e-default-rtdb.firebaseio.com", // Agar aapka Database URL alag ho toh use yahan update karein
+      databaseURL: "https://live-chat-8921e-default-rtdb.firebaseio.com",
       projectId: "live-chat-8921e",
       storageBucket: "live-chat-8921e.firebasestorage.app",
       messagingSenderId: "494558285208",
@@ -70,8 +104,9 @@
 
       if (enteredPass === FIX_PASSWORD) {
         myName = enteredName;
+        document.getElementById("user-display").textContent = "User: " + myName;
         document.getElementById("login-screen").style.display = "none";
-        document.getElementById("chat-screen").style.display = "block";
+        document.getElementById("chat-screen").style.display = "flex";
         loadMessages();
       } else {
         document.getElementById("error-msg").style.display = "block";
@@ -88,26 +123,45 @@
           timestamp: Date.now()
         });
         msgInput.value = "";
+        
+        // KEYBOARD KO OPEN RAKHNE KE LIYE FOCUS
+        msgInput.focus();
       }
     }
 
     function loadMessages() {
-      database.ref("private_chat").on("child_added", (snapshot) => {
+      const msgBox = document.getElementById("messages");
+      
+      database.ref("private_chat").on("value", (snapshot) => {
+        msgBox.innerHTML = "";
         const data = snapshot.val();
-        const msgBox = document.getElementById("messages");
-        const msgDiv = document.createElement("div");
         
-        msgDiv.classList.add("msg");
-        if (data.sender === myName) {
-          msgDiv.classList.add("my-msg");
-          msgDiv.textContent = data.message;
-        } else {
-          msgDiv.textContent = data.sender + ": " + data.message;
+        if (data) {
+          Object.keys(data).forEach((key) => {
+            const msgData = data[key];
+            const msgDiv = document.createElement("div");
+            
+            const isMe = msgData.sender === myName;
+            msgDiv.className = "msg " + (isMe ? "my-msg" : "other-msg");
+
+            msgDiv.innerHTML = `
+              ${!isMe ? `<span class="sender-name">${msgData.sender}</span>` : ""}
+              <span class="msg-content">${msgData.message}</span>
+              <button class="delete-btn" onclick="deleteMessage('${key}')" title="Delete">🗑️</button>
+            `;
+
+            msgBox.appendChild(msgDiv);
+          });
         }
-        
-        msgBox.appendChild(msgDiv);
         msgBox.scrollTop = msgBox.scrollHeight;
       });
+    }
+
+    // MESSAGE DELETE KARNE KA FUNCTION
+    function deleteMessage(key) {
+      if (confirm("Kya aap is message ko delete karna chahte hain?")) {
+        database.ref("private_chat").child(key).remove();
+      }
     }
   </script>
 </body>
