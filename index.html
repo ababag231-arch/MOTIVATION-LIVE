@@ -27,7 +27,7 @@
 
     #messages { flex: 1; overflow-y: auto; background: #0f172a; padding: 12px; margin: 8px 0 12px 0; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #1e293b; }
     
-    .msg { display: flex; flex-direction: column; position: relative; padding: 8px 12px; border-radius: 12px; max-width: 80%; word-wrap: break-word; font-size: 14px; line-height: 1.4; }
+    .msg { display: flex; flex-direction: column; position: relative; padding: 8px 12px; border-radius: 12px; max-width: 82%; word-wrap: break-word; font-size: 14px; line-height: 1.4; }
     .msg-content { margin-right: 20px; }
     
     .my-msg { background: #1d4ed8; align-self: flex-end; border-bottom-right-radius: 2px; }
@@ -35,9 +35,9 @@
     
     .sender-name { font-size: 11px; color: #94a3b8; margin-bottom: 3px; font-weight: 600; }
     
-    /* Status (Seen / Sent) */
-    .msg-status { font-size: 10px; align-self: flex-end; margin-top: 4px; opacity: 0.8; color: #cbd5e1; }
-    .my-msg .msg-status { color: #93c5fd; }
+    /* Status & Time Footer */
+    .msg-footer { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; font-size: 10px; opacity: 0.85; color: #cbd5e1; }
+    .my-msg .msg-footer { color: #93c5fd; }
 
     .delete-btn { position: absolute; top: 6px; right: 6px; background: none; border: none; color: #f87171; cursor: pointer; padding: 0; margin: 0; width: auto; font-size: 12px; opacity: 0.7; }
     .delete-btn:hover { opacity: 1; }
@@ -52,16 +52,17 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
-    <!-- Password Access Screen -->
+
+  <!-- Password Access Screen -->
   <div id="login-screen" class="card">
-    <h2 style="margin-bottom: 5px; color: #38bdf8;"> THE CYBER ACADEMY </h2>
-    <p style="color: #94a3b8; font-size: 13px;">What is your Name ?</p>
+    <h2 style="margin-bottom: 5px; color: #38bdf8;"> MOTIVATIONAL SHAYARI </h2>
+    <p style="color: #94a3b8; font-size: 13px;">What is your Name</p>
     
     <form onsubmit="event.preventDefault(); checkPassword();" autocomplete="off">
       <input 
         type="text" 
         id="pass-input" 
-        placeholder="Enter your Name ....." 
+        placeholder="Enter Room Password" 
         autocomplete="chrome-off" 
         autocorrect="off" 
         autocapitalize="off" 
@@ -89,7 +90,7 @@
       <input 
         type="text" 
         id="msg-input" 
-        placeholder="Message write karein..." 
+        placeholder="Message karein..." 
         autocomplete="off" 
         autocorrect="off" 
         autocapitalize="off" 
@@ -101,7 +102,6 @@
   </div>
 
   <script>
-        // 1. ROOMS & PASSWORDS CONFIG
     const PASS_MAPPING = {
       // --- DEDICATED PRIVATE ROOM (Alag-alag Passwords) ---
       "PH3": { roomName: "W E L C O M E !!", dbPath: "chat_private_1", userRole: "User A" },
@@ -156,6 +156,11 @@
     let activeRoomPath = "";
     let typingTimeout = null;
 
+    // Helper to format current time (e.g. "02:45 PM")
+    function getCurrentFormattedTime() {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+
     function checkPassword() {
       const enteredPass = document.getElementById("pass-input").value.trim();
 
@@ -179,7 +184,7 @@
         listenTypingStatus();
       } else {
         const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-        alert("W E L C O M E !\n\n💡 Aaj Ka Vichar:\n" + randomQuote);
+        alert("WELCOME!\n\n💡 Aaj Ka Vichar:\n" + randomQuote);
         document.getElementById("pass-input").value = "";
       }
     }
@@ -230,10 +235,13 @@
         database.ref(`${activeRoomPath}_typing/${myName}`).remove();
         clearTimeout(typingTimeout);
 
+        const currentTime = getCurrentFormattedTime();
+
         database.ref(activeRoomPath).push({
           sender: myName,
           message: text,
           timestamp: Date.now(),
+          sentAt: currentTime,
           seenBy: { [myName]: true }
         });
         
@@ -241,11 +249,10 @@
       }
     }
 
-    // --- LOAD MESSAGES LOGIC (FIXED) ---
+    // --- LOAD MESSAGES LOGIC (WITH SEEN & SENT TIME) ---
     function loadMessages() {
       const msgBox = document.getElementById("messages");
       
-      // Detach listeners first
       database.ref(activeRoomPath).off();
 
       database.ref(activeRoomPath).on("value", (snapshot) => {
@@ -260,9 +267,18 @@
             const isMe = msgData.sender === myName;
             msgDiv.className = "msg " + (isMe ? "my-msg" : "other-msg");
 
-            // Quietly update seen status
+            const currentTime = getCurrentFormattedTime();
+
+            // Samne wale ka message seen status aur seenAt time update
             if (!isMe && (!msgData.seenBy || !msgData.seenBy[myName])) {
               database.ref(`${activeRoomPath}/${key}/seenBy/${myName}`).set(true);
+              
+              // Pehli baar seen hone par time store karein
+              if (!msgData.seenAt) {
+                database.ref(`${activeRoomPath}/${key}/seenAt`).set(currentTime);
+                msgData.seenAt = currentTime;
+              }
+
               if (!msgData.seenBy) msgData.seenBy = {};
               msgData.seenBy[myName] = true;
             }
@@ -272,22 +288,37 @@
               : [];
             const isSeenByOthers = seenUsers.length > 0;
 
-            const statusHtml = isMe 
-              ? `<span class="msg-status">${isSeenByOthers ? "👁️" : "✓"}</span>`
-              : "";
+            // Footer Text Logic (Time + Status)
+            let statusText = "";
+            const sentTime = msgData.sentAt || "";
+
+            if (isMe) {
+              if (isSeenByOthers) {
+                // Agar samne wale ne dekh liya, toh SEEN TIME dikhayega
+                const seenTime = msgData.seenAt || currentTime;
+                statusText = `👁️ ${seenTime}`;
+              } else {
+                // Agar seen nahi hua, toh SENT TIME dikhayega
+                statusText = `✓ ${sentTime}`;
+              }
+            } else {
+              // Samne wale ke message par bhejane ka time dikhayega
+              statusText = sentTime;
+            }
 
             msgDiv.innerHTML = `
               ${!isMe ? `<span class="sender-name">${msgData.sender}</span>` : ""}
               <span class="msg-content">${msgData.message}</span>
-              ${statusHtml}
-              <button class="delete-btn" onclick="deleteMessage('${key}')" title="Delete">  🗑️</button>
+              <div class="msg-footer">
+                <span>${statusText}</span>
+              </div>
+              <button class="delete-btn" onclick="deleteMessage('${key}')" title="Delete"> 🗑️</button>
             `;
 
             fragment.appendChild(msgDiv);
           });
         }
 
-        // Single DOM update avoids screen glitches and duplicate message issues
         msgBox.innerHTML = "";
         msgBox.appendChild(fragment);
         msgBox.scrollTop = msgBox.scrollHeight;
