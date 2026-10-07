@@ -219,67 +219,75 @@
       });
     }
 
-    // --- SEND MESSAGE & SEEN STATUS LOGIC ---
-    function sendMessage() {
-      const msgInput = document.getElementById("msg-input");
-      const text = msgInput.value.trim();
+ function sendMessage() {
+  const msgInput = document.getElementById("msg-input");
+  const text = msgInput.value.trim();
 
-      if (text !== "" && activeRoomPath !== "") {
-        database.ref(`${activeRoomPath}_typing/${myName}`).remove();
-        clearTimeout(typingTimeout);
+  if (text !== "" && activeRoomPath !== "") {
+    // Input ko pehle hi khali kar dein taaki dobara submit na ho paaye
+    msgInput.value = "";
 
-        database.ref(activeRoomPath).push({
-          sender: myName,
-          message: text,
-          timestamp: Date.now(),
-          seenBy: { [myName]: true }
-        });
-        msgInput.value = "";
-        msgInput.focus();
-      }
-    }
+    // Typing status clear karein
+    database.ref(`${activeRoomPath}_typing/${myName}`).remove();
+    clearTimeout(typingTimeout);
 
-    function loadMessages() {
-      const msgBox = document.getElementById("messages");
-      
-      database.ref(activeRoomPath).on("value", (snapshot) => {
-        msgBox.innerHTML = "";
-        const data = snapshot.val();
+    // Firebase me push karein
+    database.ref(activeRoomPath).push({
+      sender: myName,
+      message: text,
+      timestamp: Date.now(),
+      seenBy: { [myName]: true }
+    });
+    
+    msgInput.focus();
+  }
+}
+
+function loadMessages() {
+  const msgBox = document.getElementById("messages");
+  
+  // 🔴 PURANA LISTENER PEHLE BAND KAREIN (Taki double execution na ho)
+  database.ref(activeRoomPath).off();
+  
+  database.ref(activeRoomPath).on("value", (snapshot) => {
+    msgBox.innerHTML = "";
+    const data = snapshot.val();
+    
+    if (data) {
+      Object.keys(data).forEach((key) => {
+        const msgData = data[key];
+        const msgDiv = document.createElement("div");
         
-        if (data) {
-          Object.keys(data).forEach((key) => {
-            const msgData = data[key];
-            const msgDiv = document.createElement("div");
-            
-            const isMe = msgData.sender === myName;
-            msgDiv.className = "msg " + (isMe ? "my-msg" : "other-msg");
+        const isMe = msgData.sender === myName;
+        msgDiv.className = "msg " + (isMe ? "my-msg" : "other-msg");
 
-            if (!isMe && (!msgData.seenBy || !msgData.seenBy[myName])) {
-              database.ref(`${activeRoomPath}/${key}/seenBy/${myName}`).set(true);
-            }
-
-            const seenUsers = msgData.seenBy 
-              ? Object.keys(msgData.seenBy).filter(u => u !== msgData.sender) 
-              : [];
-            const isSeenByOthers = seenUsers.length > 0;
-
-            const statusHtml = isMe 
-              ? `<span class="msg-status">${isSeenByOthers ? " 👁️" : " ✓"}</span>`
-              : "";
-
-            msgDiv.innerHTML = `
-              ${!isMe ? `<span class="sender-name">${msgData.sender}</span>` : ""}
-              <span class="msg-content">${msgData.message}</span>
-              ${statusHtml}
-              <button class="delete-btn" onclick="deleteMessage('${key}')" title="Delete">  🗑️</button>
-            `;
-
-            msgBox.appendChild(msgDiv);
-          });
+        // Seen status check
+        if (!isMe && (!msgData.seenBy || !msgData.seenBy[myName])) {
+          database.ref(`${activeRoomPath}/${key}/seenBy/${myName}`).set(true);
         }
-        msgBox.scrollTop = msgBox.scrollHeight;
+
+        const seenUsers = msgData.seenBy 
+          ? Object.keys(msgData.seenBy).filter(u => u !== msgData.sender) 
+          : [];
+        const isSeenByOthers = seenUsers.length > 0;
+
+        const statusHtml = isMe 
+          ? `<span class="msg-status">${isSeenByOthers ? "👁️" : "✓"}</span>`
+          : "";
+
+        msgDiv.innerHTML = `
+          ${!isMe ? `<span class="sender-name">${msgData.sender}</span>` : ""}
+          <span class="msg-content">${msgData.message}</span>
+          ${statusHtml}
+          <button class="delete-btn" onclick="deleteMessage('${key}')" title="Delete"> 🗑️</button>
+        `;
+
+        msgBox.appendChild(msgDiv);
       });
     }
+    msgBox.scrollTop = msgBox.scrollHeight;
+  });
+}
 
     function deleteMessage(key) {
       if (confirm("Kya aap is message ko delete karna chahte hain?")) {
