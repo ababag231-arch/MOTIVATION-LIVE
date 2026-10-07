@@ -84,7 +84,11 @@
 
   <script>
     // 1. AAPKA FIX PASSWORD
-    const FIX_PASSWORD = "K3";
+    const ROOMS_CONFIG = {
+  "K3": { roomName: "Personal Room", dbPath: "chat_room_1" },
+  "KUMAR0": { roomName: "Friends Group", dbPath: "chat_room_2" },
+  "MANO": { roomName: "Study Zone", dbPath: "chat_room_3" }
+};
 
     // 2. MOTIVATIONAL QUOTES LIST
     const quotes = [
@@ -121,73 +125,86 @@
     const database = firebase.database();
     let myName = "";
 
-    function checkPassword() {
-      const enteredPass = document.getElementById("pass-input").value;
+   let activeRoomPath = ""; // Global variable jisme current path save hoga
 
-      if (enteredPass === FIX_PASSWORD) {
-        const randomNum = Math.floor(1000 + Math.random() * 9000);
-        myName = "User-" + randomNum;
+function checkPassword() {
+  const enteredPass = document.getElementById("pass-input").value.trim();
 
-        document.getElementById("user-display").textContent = "You: " + myName;
-        document.getElementById("login-screen").style.display = "none";
-        document.getElementById("chat-screen").style.display = "flex";
-        loadMessages();
-      } else {
-        // Random Quote Pop-up
-        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-        alert("WELCOME!\n\n💡 Aaj Ka Vichar:\n" + randomQuote);
+  // Check karein ki entered password kisi room ka password hai ya nahi
+  if (ROOMS_CONFIG[enteredPass]) {
+    const selectedRoom = ROOMS_CONFIG[enteredPass];
+    
+    // Path set kar rahe hain (e.g., "chat_room_1")
+    activeRoomPath = selectedRoom.dbPath;
+
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    myName = "User-" + randomNum;
+
+    document.getElementById("user-display").textContent = "You: " + myName;
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("chat-screen").style.display = "flex";
+    
+    loadMessages(); // Messages load karenge
+  } else {
+    // Galat password par Quote
+    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+    alert("W E L C O M E !\n\n💡 Aaj Ka Vichar:\n" + randomQuote);
+    document.getElementById("pass-input").value = "";
+  }
+}
+
+    // Message Send karne ke liye:
+function sendMessage() {
+  const msgInput = document.getElementById("msg-input");
+  const text = msgInput.value.trim();
+  if (text !== "" && activeRoomPath !== "") {
+    // Ab ye dynamic activeRoomPath me message daal raha hai
+    database.ref(activeRoomPath).push({
+      sender: myName,
+      message: text,
+      timestamp: Date.now()
+    });
+    msgInput.value = "";
+    msgInput.focus();
+  }
+}
+
+// Messages Load karne ke liye:
+function loadMessages() {
+  const msgBox = document.getElementById("messages");
+  
+  // Ab ye dynamic activeRoomPath se messages read kar raha hai
+  database.ref(activeRoomPath).on("value", (snapshot) => {
+    msgBox.innerHTML = "";
+    const data = snapshot.val();
+    
+    if (data) {
+      Object.keys(data).forEach((key) => {
+        const msgData = data[key];
+        const msgDiv = document.createElement("div");
         
-        document.getElementById("pass-input").value = "";
-      }
-    }
+        const isMe = msgData.sender === myName;
+        msgDiv.className = "msg " + (isMe ? "my-msg" : "other-msg");
 
-    function sendMessage() {
-      const msgInput = document.getElementById("msg-input");
-      const text = msgInput.value.trim();
-      if (text !== "") {
-        database.ref("private_chat").push({
-          sender: myName,
-          message: text,
-          timestamp: Date.now()
-        });
-        msgInput.value = "";
-        msgInput.focus();
-      }
-    }
+        msgDiv.innerHTML = `
+          ${!isMe ? `<span class="sender-name">${msgData.sender}</span>` : ""}
+          <span class="msg-content">${msgData.message}</span>
+          <button class="delete-btn" onclick="deleteMessage('${key}')" title="Delete">   🗑️</button>
+        `;
 
-    function loadMessages() {
-      const msgBox = document.getElementById("messages");
-      
-      database.ref("private_chat").on("value", (snapshot) => {
-        msgBox.innerHTML = "";
-        const data = snapshot.val();
-        
-        if (data) {
-          Object.keys(data).forEach((key) => {
-            const msgData = data[key];
-            const msgDiv = document.createElement("div");
-            
-            const isMe = msgData.sender === myName;
-            msgDiv.className = "msg " + (isMe ? "my-msg" : "other-msg");
-
-            msgDiv.innerHTML = `
-              ${!isMe ? `<span class="sender-name">${msgData.sender}</span>` : ""}
-              <span class="msg-content">${msgData.message}</span>
-              <button class="delete-btn" onclick="deleteMessage('${key}')" title="Delete">🗑️</button>
-            `;
-
-            msgBox.appendChild(msgDiv);
-          });
-        }
-        msgBox.scrollTop = msgBox.scrollHeight;
+        msgBox.appendChild(msgDiv);
       });
     }
+    msgBox.scrollTop = msgBox.scrollHeight;
+  });
+}
 
-    function deleteMessage(key) {
-      if (confirm("Kya aap is message ko delete karna chahte hain?")) {
-        database.ref("private_chat").child(key).remove();
-      }
-    }
+// Delete karne ke liye:
+function deleteMessage(key) {
+  if (confirm("Kya aap is message ko delete karna chahte hain?")) {
+    database.ref(activeRoomPath).child(key).remove();
+  }
+}
   </script>
 </body>
 </html>
