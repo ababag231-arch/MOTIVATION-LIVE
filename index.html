@@ -19,10 +19,13 @@
 
     /* Chat UI */
     #chat-screen { display: none; height: 85vh; flex-direction: column; max-width: 500px; width: 100%; padding: 15px; }
-    .chat-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #334155; }
+    .chat-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid #334155; }
     .chat-header h3 { font-size: 18px; color: #38bdf8; }
 
-    #messages { flex: 1; overflow-y: auto; background: #0f172a; padding: 12px; margin: 12px 0; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #1e293b; }
+    /* Typing Indicator Bar */
+    #typing-status { font-size: 12px; color: #38bdf8; font-style: italic; min-height: 18px; margin-top: 4px; }
+
+    #messages { flex: 1; overflow-y: auto; background: #0f172a; padding: 12px; margin: 8px 0 12px 0; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #1e293b; }
     
     .msg { display: flex; flex-direction: column; position: relative; padding: 8px 12px; border-radius: 12px; max-width: 80%; word-wrap: break-word; font-size: 14px; line-height: 1.4; }
     .msg-content { margin-right: 20px; }
@@ -32,7 +35,10 @@
     
     .sender-name { font-size: 11px; color: #94a3b8; margin-bottom: 3px; font-weight: 600; }
     
-    /* Delete Button */
+    /* Status (Seen / Sent) */
+    .msg-status { font-size: 10px; align-self: flex-end; margin-top: 4px; opacity: 0.8; color: #cbd5e1; }
+    .my-msg .msg-status { color: #93c5fd; }
+
     .delete-btn { position: absolute; top: 6px; right: 6px; background: none; border: none; color: #f87171; cursor: pointer; padding: 0; margin: 0; width: auto; font-size: 12px; opacity: 0.7; }
     .delete-btn:hover { opacity: 1; }
 
@@ -47,21 +53,22 @@
 </head>
 <body>
 
-  <!-- Password Only Screen -->
+  <!-- Password Access Screen -->
   <div id="login-screen" class="card">
-    <h2 style="margin-bottom: 5px; color: #38bdf8;">THE CYBER ACADEMY</h2>
-    <p style="color: #94a3b8; font-size: 13px;">What is your name ?</p>
+    <h2 style="margin-bottom: 5px; color: #38bdf8;">What is your name ?</h2>
+    <p style="color: #94a3b8; font-size: 13px;">Enter your Name .....</p>
     
     <form onsubmit="event.preventDefault(); checkPassword();" autocomplete="off">
       <input 
         type="text" 
         id="pass-input" 
-        placeholder="Enter your name ....." 
+        placeholder="Enter Room Password" 
         autocomplete="chrome-off" 
         autocorrect="off" 
         autocapitalize="off" 
         spellcheck="false"
         onfocus="this.type='password'"
+        required
       >
       <button type="submit">Enter</button>
     </form>
@@ -70,29 +77,51 @@
   <!-- Chat Screen -->
   <div id="chat-screen" class="card">
     <div class="chat-header">
-      <h3>W E L C O M E !</h3>
+      <h3 id="room-title">W E L C O M E !</h3>
       <span id="user-display" style="font-size: 12px; color: #94a3b8;"></span>
     </div>
+    
+    <!-- Real-time Typing Status Header -->
+    <div id="typing-status"></div>
     
     <div id="messages"></div>
 
     <form class="input-box" onsubmit="event.preventDefault(); sendMessage();" autocomplete="off">
-      <input type="text" id="msg-input" placeholder="Message write karein..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <input 
+        type="text" 
+        id="msg-input" 
+        placeholder="Message write karein..." 
+        autocomplete="off" 
+        autocorrect="off" 
+        autocapitalize="off" 
+        spellcheck="false"
+        oninput="handleTyping()"
+      >
       <button type="submit">Send</button>
     </form>
   </div>
 
   <script>
-    // 1. AAPKA FIX PASSWORD
-    const ROOMS_CONFIG = {
-  "K3": { roomName: "Personal Room", dbPath: "chat_room_1" },
-  "KUMAR0": { roomName: "Friends Group", dbPath: "chat_room_2" },
-  "MANO": { roomName: "Study Zone", dbPath: "chat_room_3" },
-  "PH3": { roomName: "Room 4", dbPath: "chat_room_4" }
-};
+    // 1. ROOMS & PASSWORDS CONFIG
+    const PASS_MAPPING = {
+      // --- DEDICATED PRIVATE ROOM (Alag-alag Passwords) ---
+      "PH3": { roomName: "Private Room", dbPath: "chat_private_1", userRole: "User A" },
+      "PH4": { roomName: "Private Room", dbPath: "chat_private_1", userRole: "User B" },
+      // Friends Group Ke Passwords
+      "MANO3": { roomName: "Friends Group", dbPath: "chat_room_2", userRole: "User A" },
+      "MANO4": { roomName: "Friends Group", dbPath: "chat_room_2", userRole: "User B" },
+
+      // Study Zone Ke Passwords
+      "AA": { roomName: "Study Zone", dbPath: "chat_room_3", userRole: "User A" },
+      "BB": { roomName: "Study Zone", dbPath: "chat_room_3", userRole: "User B" },
+
+      // --- OPEN ROOMS (Ek Single Password - Koi bhi aao) ---
+      "KUMAR0": { roomName: "Public Lounge", dbPath: "chat_public_1", userRole: "RANDOM" },
+      "K3":  { roomName: "Study Zone", dbPath: "chat_study_room", userRole: "RANDOM" }
+    };
 
     // 2. MOTIVATIONAL QUOTES LIST
-    const quotes = [
+      const quotes = [
       "“Mehnat itni khamoshi se karo ki kamyabi shor macha de!”",
       "“Koshish aisi karo ki haarte haarte kab jeet jao, pata hi na chale!”",
       "“Mahaanta kabhi na girne me nahi, balki har baar girkar uthne me hai!”",
@@ -121,91 +150,142 @@
       appId: "1:494558285208:web:7fd4f7b3f1b9ab51586fed"
     };
 
-    // Firebase Initialize
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
+    
     let myName = "";
+    let activeRoomPath = "";
+    let typingTimeout = null;
 
-   let activeRoomPath = ""; // Global variable jisme current path save hoga
+    function checkPassword() {
+      const enteredPass = document.getElementById("pass-input").value.trim();
 
-function checkPassword() {
-  const enteredPass = document.getElementById("pass-input").value.trim();
+      if (PASS_MAPPING[enteredPass]) {
+        const config = PASS_MAPPING[enteredPass];
+        activeRoomPath = config.dbPath;
 
-  // Check karein ki entered password kisi room ka password hai ya nahi
-  if (ROOMS_CONFIG[enteredPass]) {
-    const selectedRoom = ROOMS_CONFIG[enteredPass];
-    
-    // Path set kar rahe hain (e.g., "chat_room_1")
-    activeRoomPath = selectedRoom.dbPath;
+        // Agar RANDOM mode hai toh random ID de do, nahi toh fixed role (User A / User B)
+        if (config.userRole === "RANDOM") {
+          const randomNum = Math.floor(1000 + Math.random() * 9000);
+          myName = "User-" + randomNum;
+        } else {
+          myName = config.userRole;
+        }
 
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    myName = "User-" + randomNum;
-
-    document.getElementById("user-display").textContent = "You: " + myName;
-    document.getElementById("login-screen").style.display = "none";
-    document.getElementById("chat-screen").style.display = "flex";
-    
-    loadMessages(); // Messages load karenge
-  } else {
-    // Galat password par Quote
-    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-    alert("W E L C O M E !\n\n💡 Aaj Ka Vichar:\n" + randomQuote);
-    document.getElementById("pass-input").value = "";
-  }
-}
-
-    // Message Send karne ke liye:
-function sendMessage() {
-  const msgInput = document.getElementById("msg-input");
-  const text = msgInput.value.trim();
-  if (text !== "" && activeRoomPath !== "") {
-    // Ab ye dynamic activeRoomPath me message daal raha hai
-    database.ref(activeRoomPath).push({
-      sender: myName,
-      message: text,
-      timestamp: Date.now()
-    });
-    msgInput.value = "";
-    msgInput.focus();
-  }
-}
-
-// Messages Load karne ke liye:
-function loadMessages() {
-  const msgBox = document.getElementById("messages");
-  
-  // Ab ye dynamic activeRoomPath se messages read kar raha hai
-  database.ref(activeRoomPath).on("value", (snapshot) => {
-    msgBox.innerHTML = "";
-    const data = snapshot.val();
-    
-    if (data) {
-      Object.keys(data).forEach((key) => {
-        const msgData = data[key];
-        const msgDiv = document.createElement("div");
+        document.getElementById("room-title").textContent = "🔒 " + config.roomName;
+        document.getElementById("user-display").textContent = "You: " + myName;
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("chat-screen").style.display = "flex";
         
-        const isMe = msgData.sender === myName;
-        msgDiv.className = "msg " + (isMe ? "my-msg" : "other-msg");
+        loadMessages();
+        listenTypingStatus();
+      } else {
+        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        alert("W E L C O M E !\n\n💡 Aaj Ka Vichar:\n" + randomQuote);
+        document.getElementById("pass-input").value = "";
+      }
+    }
 
-        msgDiv.innerHTML = `
-          ${!isMe ? `<span class="sender-name">${msgData.sender}</span>` : ""}
-          <span class="msg-content">${msgData.message}</span>
-          <button class="delete-btn" onclick="deleteMessage('${key}')" title="Delete">   🗑️</button>
-        `;
+    // --- TYPING FEATURE LOGIC ---
+    function handleTyping() {
+      if (!activeRoomPath || !myName) return;
 
-        msgBox.appendChild(msgDiv);
+      const typingRef = database.ref(`${activeRoomPath}_typing/${myName}`);
+      typingRef.set(true);
+
+      typingRef.onDisconnect().remove();
+
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        typingRef.remove();
+      }, 2000);
+    }
+
+    function listenTypingStatus() {
+      const typingStatusDiv = document.getElementById("typing-status");
+      
+      database.ref(`${activeRoomPath}_typing`).on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const typers = Object.keys(data).filter(user => user !== myName);
+          if (typers.length > 0) {
+            typingStatusDiv.textContent = `✍️ ${typers.join(", ")} typing...`;
+          } else {
+            typingStatusDiv.textContent = "";
+          }
+        } else {
+          typingStatusDiv.textContent = "";
+        }
       });
     }
-    msgBox.scrollTop = msgBox.scrollHeight;
-  });
-}
 
-// Delete karne ke liye:
-function deleteMessage(key) {
-  if (confirm("Kya aap is message ko delete karna chahte hain?")) {
-    database.ref(activeRoomPath).child(key).remove();
-  }
-}
+    // --- SEND MESSAGE & SEEN STATUS LOGIC ---
+    function sendMessage() {
+      const msgInput = document.getElementById("msg-input");
+      const text = msgInput.value.trim();
+
+      if (text !== "" && activeRoomPath !== "") {
+        database.ref(`${activeRoomPath}_typing/${myName}`).remove();
+        clearTimeout(typingTimeout);
+
+        database.ref(activeRoomPath).push({
+          sender: myName,
+          message: text,
+          timestamp: Date.now(),
+          seenBy: { [myName]: true }
+        });
+        msgInput.value = "";
+        msgInput.focus();
+      }
+    }
+
+    function loadMessages() {
+      const msgBox = document.getElementById("messages");
+      
+      database.ref(activeRoomPath).on("value", (snapshot) => {
+        msgBox.innerHTML = "";
+        const data = snapshot.val();
+        
+        if (data) {
+          Object.keys(data).forEach((key) => {
+            const msgData = data[key];
+            const msgDiv = document.createElement("div");
+            
+            const isMe = msgData.sender === myName;
+            msgDiv.className = "msg " + (isMe ? "my-msg" : "other-msg");
+
+            if (!isMe && (!msgData.seenBy || !msgData.seenBy[myName])) {
+              database.ref(`${activeRoomPath}/${key}/seenBy/${myName}`).set(true);
+            }
+
+            const seenUsers = msgData.seenBy 
+              ? Object.keys(msgData.seenBy).filter(u => u !== msgData.sender) 
+              : [];
+            const isSeenByOthers = seenUsers.length > 0;
+
+            const statusHtml = isMe 
+              ? `<span class="msg-status">${isSeenByOthers ? " 👁️" : " ✓"}</span>`
+              : "";
+
+            msgDiv.innerHTML = `
+              ${!isMe ? `<span class="sender-name">${msgData.sender}</span>` : ""}
+              <span class="msg-content">${msgData.message}</span>
+              ${statusHtml}
+              <button class="delete-btn" onclick="deleteMessage('${key}')" title="Delete">  🗑️</button>
+            `;
+
+            msgBox.appendChild(msgDiv);
+          });
+        }
+        msgBox.scrollTop = msgBox.scrollHeight;
+      });
+    }
+
+    function deleteMessage(key) {
+      if (confirm("Kya aap is message ko delete karna chahte hain?")) {
+        database.ref(activeRoomPath).child(key).remove();
+      }
+    }
   </script>
 </body>
 </html>
