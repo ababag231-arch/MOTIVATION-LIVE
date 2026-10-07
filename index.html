@@ -105,19 +105,19 @@
     // 1. ROOMS & PASSWORDS CONFIG
     const PASS_MAPPING = {
       // --- DEDICATED PRIVATE ROOM (Alag-alag Passwords) ---
-      "PH3": { roomName: "Private Room", dbPath: "chat_private_1", userRole: "User A" },
-      "PH4": { roomName: "Private Room", dbPath: "chat_private_1", userRole: "User B" },
+      "PH3": { roomName: "W E L C O M E !!", dbPath: "chat_private_1", userRole: "User A" },
+      "PH4": { roomName: "W E L C O M E !!", dbPath: "chat_private_1", userRole: "User B" },
       // Friends Group Ke Passwords
-      "MANO3": { roomName: "Friends Group", dbPath: "chat_room_2", userRole: "User A" },
-      "MANO4": { roomName: "Friends Group", dbPath: "chat_room_2", userRole: "User B" },
+      "MANO3": { roomName: "W E L C O M E !!", dbPath: "chat_room_2", userRole: "User A" },
+      "MANO4": { roomName: "W E L C O M E !!", dbPath: "chat_room_2", userRole: "User B" },
 
       // Study Zone Ke Passwords
-      "AA": { roomName: "Study Zone", dbPath: "chat_room_3", userRole: "User A" },
-      "BB": { roomName: "Study Zone", dbPath: "chat_room_3", userRole: "User B" },
+      "AA": { roomName: "W E L C O M E !!", dbPath: "chat_room_3", userRole: "User A" },
+      "BB": { roomName: "W E L C O M E !!", dbPath: "chat_room_3", userRole: "User B" },
 
       // --- OPEN ROOMS (Ek Single Password - Koi bhi aao) ---
-      "KUMAR0": { roomName: "Public Lounge", dbPath: "chat_public_1", userRole: "RANDOM" },
-      "K3":  { roomName: "Study Zone", dbPath: "chat_study_room", userRole: "RANDOM" }
+      "KUMAR0": { roomName: "W E L C O M E !!", dbPath: "chat_public_1", userRole: "RANDOM" },
+      "K3":  { roomName: "W E L C O M E !!", dbPath: "chat_study_room", userRole: "RANDOM" }
     };
 
     // 2. MOTIVATIONAL QUOTES LIST
@@ -172,7 +172,7 @@
           myName = config.userRole;
         }
 
-        document.getElementById("room-title").textContent = "🔒 " + config.roomName;
+        document.getElementById("room-title").textContent = config.roomName;
         document.getElementById("user-display").textContent = "You: " + myName;
         document.getElementById("login-screen").style.display = "none";
         document.getElementById("chat-screen").style.display = "flex";
