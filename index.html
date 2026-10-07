@@ -52,8 +52,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
-
-  <!-- Password Access Screen -->
+    <!-- Password Access Screen -->
   <div id="login-screen" class="card">
     <h2 style="margin-bottom: 5px; color: #38bdf8;"> THE CYBER ACADEMY </h2>
     <p style="color: #94a3b8; font-size: 13px;">What is your Name ?</p>
@@ -102,7 +101,7 @@
   </div>
 
   <script>
-    // 1. ROOMS & PASSWORDS CONFIG
+        // 1. ROOMS & PASSWORDS CONFIG
     const PASS_MAPPING = {
       // --- DEDICATED PRIVATE ROOM (Alag-alag Passwords) ---
       "PH3": { roomName: "W E L C O M E !!", dbPath: "chat_private_1", userRole: "User A" },
@@ -164,7 +163,6 @@
         const config = PASS_MAPPING[enteredPass];
         activeRoomPath = config.dbPath;
 
-        // Agar RANDOM mode hai toh random ID de do, nahi toh fixed role (User A / User B)
         if (config.userRole === "RANDOM") {
           const randomNum = Math.floor(1000 + Math.random() * 9000);
           myName = "User-" + randomNum;
@@ -204,6 +202,8 @@
     function listenTypingStatus() {
       const typingStatusDiv = document.getElementById("typing-status");
       
+      database.ref(`${activeRoomPath}_typing`).off();
+
       database.ref(`${activeRoomPath}_typing`).on("value", (snapshot) => {
         const data = snapshot.val();
         if (data) {
@@ -219,75 +219,80 @@
       });
     }
 
- function sendMessage() {
-  const msgInput = document.getElementById("msg-input");
-  const text = msgInput.value.trim();
+    // --- SEND MESSAGE LOGIC ---
+    function sendMessage() {
+      const msgInput = document.getElementById("msg-input");
+      const text = msgInput.value.trim();
 
-  if (text !== "" && activeRoomPath !== "") {
-    // Input ko pehle hi khali kar dein taaki dobara submit na ho paaye
-    msgInput.value = "";
+      if (text !== "" && activeRoomPath !== "") {
+        msgInput.value = "";
 
-    // Typing status clear karein
-    database.ref(`${activeRoomPath}_typing/${myName}`).remove();
-    clearTimeout(typingTimeout);
+        database.ref(`${activeRoomPath}_typing/${myName}`).remove();
+        clearTimeout(typingTimeout);
 
-    // Firebase me push karein
-    database.ref(activeRoomPath).push({
-      sender: myName,
-      message: text,
-      timestamp: Date.now(),
-      seenBy: { [myName]: true }
-    });
-    
-    msgInput.focus();
-  }
-}
-
-function loadMessages() {
-  const msgBox = document.getElementById("messages");
-  
-  // 🔴 PURANA LISTENER PEHLE BAND KAREIN (Taki double execution na ho)
-  database.ref(activeRoomPath).off();
-  
-  database.ref(activeRoomPath).on("value", (snapshot) => {
-    msgBox.innerHTML = "";
-    const data = snapshot.val();
-    
-    if (data) {
-      Object.keys(data).forEach((key) => {
-        const msgData = data[key];
-        const msgDiv = document.createElement("div");
+        database.ref(activeRoomPath).push({
+          sender: myName,
+          message: text,
+          timestamp: Date.now(),
+          seenBy: { [myName]: true }
+        });
         
-        const isMe = msgData.sender === myName;
-        msgDiv.className = "msg " + (isMe ? "my-msg" : "other-msg");
+        msgInput.focus();
+      }
+    }
 
-        // Seen status check
-        if (!isMe && (!msgData.seenBy || !msgData.seenBy[myName])) {
-          database.ref(`${activeRoomPath}/${key}/seenBy/${myName}`).set(true);
+    // --- LOAD MESSAGES LOGIC (FIXED) ---
+    function loadMessages() {
+      const msgBox = document.getElementById("messages");
+      
+      // Detach listeners first
+      database.ref(activeRoomPath).off();
+
+      database.ref(activeRoomPath).on("value", (snapshot) => {
+        const data = snapshot.val();
+        const fragment = document.createDocumentFragment();
+
+        if (data) {
+          Object.keys(data).forEach((key) => {
+            const msgData = data[key];
+            const msgDiv = document.createElement("div");
+            
+            const isMe = msgData.sender === myName;
+            msgDiv.className = "msg " + (isMe ? "my-msg" : "other-msg");
+
+            // Quietly update seen status
+            if (!isMe && (!msgData.seenBy || !msgData.seenBy[myName])) {
+              database.ref(`${activeRoomPath}/${key}/seenBy/${myName}`).set(true);
+              if (!msgData.seenBy) msgData.seenBy = {};
+              msgData.seenBy[myName] = true;
+            }
+
+            const seenUsers = msgData.seenBy 
+              ? Object.keys(msgData.seenBy).filter(u => u !== msgData.sender) 
+              : [];
+            const isSeenByOthers = seenUsers.length > 0;
+
+            const statusHtml = isMe 
+              ? `<span class="msg-status">${isSeenByOthers ? "👁️" : "✓"}</span>`
+              : "";
+
+            msgDiv.innerHTML = `
+              ${!isMe ? `<span class="sender-name">${msgData.sender}</span>` : ""}
+              <span class="msg-content">${msgData.message}</span>
+              ${statusHtml}
+              <button class="delete-btn" onclick="deleteMessage('${key}')" title="Delete">  🗑️</button>
+            `;
+
+            fragment.appendChild(msgDiv);
+          });
         }
 
-        const seenUsers = msgData.seenBy 
-          ? Object.keys(msgData.seenBy).filter(u => u !== msgData.sender) 
-          : [];
-        const isSeenByOthers = seenUsers.length > 0;
-
-        const statusHtml = isMe 
-          ? `<span class="msg-status">${isSeenByOthers ? "👁️" : "✓"}</span>`
-          : "";
-
-        msgDiv.innerHTML = `
-          ${!isMe ? `<span class="sender-name">${msgData.sender}</span>` : ""}
-          <span class="msg-content">${msgData.message}</span>
-          ${statusHtml}
-          <button class="delete-btn" onclick="deleteMessage('${key}')" title="Delete"> 🗑️</button>
-        `;
-
-        msgBox.appendChild(msgDiv);
+        // Single DOM update avoids screen glitches and duplicate message issues
+        msgBox.innerHTML = "";
+        msgBox.appendChild(fragment);
+        msgBox.scrollTop = msgBox.scrollHeight;
       });
     }
-    msgBox.scrollTop = msgBox.scrollHeight;
-  });
-}
 
     function deleteMessage(key) {
       if (confirm("Kya aap is message ko delete karna chahte hain?")) {
