@@ -21,10 +21,13 @@
     #chat-screen { display: none; height: 85vh; flex-direction: column; max-width: 500px; width: 100%; padding: 15px; }
     .chat-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid #334155; }
     .chat-header h3 { font-size: 18px; color: #38bdf8; }
-    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .header-actions { display: flex; align-items: center; gap: 6px; }
 
-    /* Clear All Button Style */
-    .clear-btn { background: #ef4444; color: white; padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; border: none; cursor: pointer; width: auto; margin-top: 0; }
+    /* Header Buttons */
+    .call-btn { background: #10b981; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; border: none; cursor: pointer; width: auto; margin-top: 0; }
+    .call-btn:hover { background: #059669; }
+    
+    .clear-btn { background: #ef4444; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; border: none; cursor: pointer; width: auto; margin-top: 0; }
     .clear-btn:hover { background: #dc2626; }
 
     /* Typing Indicator Bar */
@@ -60,6 +63,14 @@
     #video-feed { width: 90%; max-width: 400px; border-radius: 12px; background: black; }
     .cam-btn-group { display: flex; gap: 10px; margin-top: 15px; }
     .cam-btn { width: auto; padding: 10px 20px; font-size: 14px; }
+
+    /* Video Call Overlay Styles */
+    #video-call-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f172a; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; }
+    .video-container { position: relative; width: 90%; max-width: 500px; height: 70vh; background: #000; border-radius: 16px; overflow: hidden; }
+    #remote-video { width: 100%; height: 100%; object-fit: cover; }
+    #local-video { position: absolute; bottom: 15px; right: 15px; width: 100px; height: 140px; border-radius: 10px; object-fit: cover; border: 2px solid #38bdf8; background: #1e293b; }
+    .call-controls { display: flex; gap: 15px; margin-top: 20px; }
+    .end-call-btn { background: #ef4444; color: white; padding: 12px 24px; border-radius: 30px; font-weight: bold; width: auto; cursor: pointer; }
   </style>
 
   <!-- Firebase Compat Libraries -->
@@ -94,8 +105,9 @@
     <div class="chat-header">
       <h3 id="room-title">W E L C O M E !</h3>
       <div class="header-actions">
-        <span id="user-display" style="font-size: 12px; color: #94a3b8;"></span>
-        <button class="clear-btn" onclick="clearAllMessages()" title="Clear All Chat">Clear Chat 🗑️</button>
+        <span id="user-display" style="font-size: 11px; color: #94a3b8; margin-right: 2px;"></span>
+        <button class="call-btn" onclick="startVideoCall()" title="Start Video Call">📹 Call</button>
+        <button class="clear-btn" onclick="clearAllMessages()" title="Clear All Chat">🗑️ Clear</button>
       </div>
     </div>
     
@@ -138,6 +150,17 @@
     </div>
   </div>
 
+  <!-- Video Call Modal -->
+  <div id="video-call-modal">
+    <div class="video-container">
+      <video id="remote-video" autoplay playsinline></video>
+      <video id="local-video" autoplay playsinline muted></video>
+    </div>
+    <div class="call-controls">
+      <button class="end-call-btn" onclick="endVideoCall()">End Call 🔴</button>
+    </div>
+  </div>
+
   <script>
     const PASS_MAPPING = {
       "PH3": { roomName: "W E L C O M E !!", dbPath: "chat_private_1", userRole: "User A" },
@@ -150,7 +173,7 @@
       "K3":  { roomName: "W E L C O M E !!", dbPath: "chat_study_room", userRole: "RANDOM" }
     };
 
-    const quotes = [
+     const quotes = [
       "“Mehnat itni khamoshi se karo ki kamyabi shor macha de!”",
       "“Koshish aisi karo ki haarte haarte kab jeet jao, pata hi na chale!”",
       "“Mahaanta kabhi na girne me nahi, balki har baar girkar uthne me hai!”",
@@ -189,6 +212,11 @@
     let typingTimeout = null;
     let cameraStream = null;
 
+    // WebRTC Variables
+    let peerConnection = null;
+    let localStream = null;
+    const rtcConfig = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
     function getCurrentFormattedTime() {
       return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
     }
@@ -214,6 +242,7 @@
         
         loadMessages();
         listenTypingStatus();
+        listenForVideoCall();
       } else {
         const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
         alert("WELCOME!\n\n💡 Aaj Ka Vichar:\n" + randomQuote);
@@ -413,6 +442,102 @@
           database.ref(activeRoomPath).remove();
         }
       }
+    }
+
+    // --- WEBRTC VIDEO CALL LOGIC ---
+    async function startVideoCall() {
+      document.getElementById("video-call-modal").style.display = "flex";
+      setupPeerConnection();
+
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      document.getElementById("local-video").srcObject = localStream;
+      localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+
+      database.ref(`${activeRoomPath}_call`).set({
+        type: "offer",
+        offer: { sdp: offer.sdp, type: offer.type },
+        sender: myName
+      });
+    }
+
+    function listenForVideoCall() {
+      const callRef = database.ref(`${activeRoomPath}_call`);
+      callRef.on("value", async (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        if (data.type === "offer" && data.sender !== myName) {
+          if (confirm(`${data.sender} aapko video call kar rahe hain. Accept karein?`)) {
+            document.getElementById("video-call-modal").style.display = "flex";
+            setupPeerConnection();
+
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById("local-video").srcObject = localStream;
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            database.ref(`${activeRoomPath}_call`).update({
+              type: "answer",
+              answer: { sdp: answer.sdp, type: answer.type },
+              receiver: myName
+            });
+          }
+        } else if (data.type === "answer" && data.sender === myName) {
+          if (peerConnection && !peerConnection.currentRemoteDescription) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+          }
+        } else if (data.type === "candidate" && data.sender !== myName) {
+          if (peerConnection && data.candidate) {
+            try {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            } catch (e) {}
+          }
+        } else if (data.type === "end") {
+          endVideoCall(false);
+        }
+      });
+    }
+
+    function setupPeerConnection() {
+      peerConnection = new RTCPeerConnection(rtcConfig);
+
+      peerConnection.ontrack = (event) => {
+        document.getElementById("remote-video").srcObject = event.streams[0];
+      };
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          database.ref(`${activeRoomPath}_call`).set({
+            type: "candidate",
+            candidate: event.candidate.toJSON(),
+            sender: myName
+          });
+        }
+      };
+    }
+
+    function endVideoCall(notify = true) {
+      if (notify && activeRoomPath) {
+        database.ref(`${activeRoomPath}_call`).set({ type: "end", sender: myName });
+      }
+
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+
+      document.getElementById("video-call-modal").style.display = "none";
     }
   </script>
 </body>
